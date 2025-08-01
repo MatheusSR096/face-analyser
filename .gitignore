@@ -1,0 +1,4 @@
+__pycache__
+.gradio
+.vscode
+venv
