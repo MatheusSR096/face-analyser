@@ -98,7 +98,7 @@ camera_input = st.camera_input("📸 Ou tire uma foto")
 
 if image_input or camera_input:
     uploaded_image = Image.open(image_input or camera_input)
-    st.image(uploaded_image, caption="Imagem Original", use_container_width=True)
+    st.image(uploaded_image, caption="Imagem Original", use_column_width=True)
     with st.spinner("Analisando..."):
         result_img = process_image(uploaded_image)
-        st.image(result_img, caption="Resultado da Análise", use_container_width=True)
+        st.image(result_img, caption="Resultado da Análise", use_column_width=True)
