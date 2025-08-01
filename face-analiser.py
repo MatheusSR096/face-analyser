@@ -5,6 +5,9 @@ from PIL import Image
 from deepface import DeepFace
 from insightface.app import FaceAnalysis
 
+# Coloque set_page_config logo após importar streamlit
+st.set_page_config(page_title="Análise Facial", layout="centered")
+
 # Inicializa o modelo InsightFace
 @st.cache_resource
 def load_insightface():
@@ -87,7 +90,6 @@ def process_image(pil_image):
     return cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
 
 # Interface do Streamlit
-st.set_page_config(page_title="Análise Facial", layout="centered")
 st.title("📷 Análise Facial com DeepFace + InsightFace")
 st.markdown("Envie uma imagem ou use a câmera para detectar idade, gênero e emoção.")
 
