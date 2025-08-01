@@ -1,9 +1,9 @@
-streamlit
-opencv-python
-numpy
-Pillow
+numpy==1.23.5
+protobuf==3.20.3
+tensorflow==2.11.0
 deepface
 insightface
+opencv-python
+streamlit
+Pillow
 onnxruntime
-tensorflow
-protobuf==3.20.3
