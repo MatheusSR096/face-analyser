@@ -5,4 +5,5 @@ Pillow
 deepface
 insightface
 onnxruntime
-tf-keras
+tensorflow
+protobuf==3.20.3
