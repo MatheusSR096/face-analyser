@@ -1,11 +1,11 @@
 import streamlit as st
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 from deepface import DeepFace
 from insightface.app import FaceAnalysis
 
-# Coloque set_page_config logo após importar streamlit
+# Configuração da página
 st.set_page_config(page_title="Análise Facial", layout="centered")
 
 # Inicializa o modelo InsightFace
@@ -56,6 +56,9 @@ def analyze_emotion(frame):
         return "Desconhecida"
 
 def process_image(pil_image):
+    # Corrige rotação da imagem com base nos metadados EXIF
+    pil_image = ImageOps.exif_transpose(pil_image)
+
     frame_bgr = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
     faces = app_insight.get(frame_bgr)
     emotion = analyze_emotion(frame_bgr)
@@ -98,7 +101,9 @@ camera_input = st.camera_input("📸 Ou tire uma foto")
 
 if image_input or camera_input:
     uploaded_image = Image.open(image_input or camera_input)
+    uploaded_image = ImageOps.exif_transpose(uploaded_image)  # Corrige rotação da imagem
     st.image(uploaded_image, caption="Imagem Original", use_column_width=True)
+
     with st.spinner("Analisando..."):
         result_img = process_image(uploaded_image)
         st.image(result_img, caption="Resultado da Análise", use_column_width=True)
