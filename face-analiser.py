@@ -6,7 +6,11 @@ from deepface import DeepFace
 from insightface.app import FaceAnalysis
 
 # Configuração da página
-st.set_page_config(page_title="Análise Facial", layout="centered")
+st.set_page_config(
+    page_title="Análise Facial", 
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
 
 # Inicializa o modelo InsightFace
 @st.cache_resource
@@ -27,38 +31,36 @@ def translate_gender(gender_id):
 
 def map_age_to_range(age):
     if age <= 12:
-        return "Criança (0-12)"
+        return "Criança"
     elif age <= 17:
-        return "Adolescente (13-17)"
+        return "Adolescente"
     elif age <= 29:
-        return "Jovem Adulto (18-29)"
+        return "Jovem"
     elif age <= 49:
-        return "Adulto (30-49)"
+        return "Adulto"
     elif age <= 64:
-        return "Meia-idade (50-64)"
+        return "Meia-idade"
     else:
-        return "Idoso (65+)"
+        return "Idoso"
 
 def translate_emotion(emotion):
     translation = {
         "angry": "Bravo",
-        "disgust": "Nojo",
+        "disgust": "Nojo", 
         "fear": "Medo",
         "happy": "Feliz",
         "sad": "Triste",
         "surprise": "Surpreso",
         "neutral": "Neutro",
     }
-    return translation.get(emotion, emotion)
+    return translation.get(emotion, "Neutro")
 
 def fix_image_orientation(pil_image):
     """Corrige a orientação da imagem baseada nos metadados EXIF"""
     try:
-        # Usa ImageOps.exif_transpose para corrigir automaticamente a orientação
         corrected_image = ImageOps.exif_transpose(pil_image)
         return corrected_image
-    except Exception as e:
-        st.warning(f"Não foi possível corrigir a orientação: {e}")
+    except:
         return pil_image
 
 def analyze_emotion(frame):
@@ -69,166 +71,140 @@ def analyze_emotion(frame):
             return result[0]['dominant_emotion']
         elif isinstance(result, dict):
             return result['dominant_emotion']
-        else:
-            return "Neutro"
-    except Exception as e:
-        st.warning(f"Erro na análise emocional: {e}")
-        return "Desconhecida"
+        return "neutral"
+    except:
+        return "neutral"
 
 def process_image(pil_image):
-    """Processa a imagem e detecta faces, idade, gênero e emoção"""
+    """Processa a imagem e detecta faces"""
     try:
-        # Corrige a orientação da imagem
+        # Corrige orientação
         pil_image = fix_image_orientation(pil_image)
         
-        # Converte PIL para OpenCV
+        # Converte para OpenCV
         frame_bgr = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
         
-        # Verifica se o modelo foi carregado
         if app_insight is None:
-            st.error("Modelo InsightFace não foi carregado corretamente.")
-            return np.array(pil_image)
+            return np.array(pil_image), []
         
         # Detecta faces
         faces = app_insight.get(frame_bgr)
         
         if len(faces) == 0:
-            st.warning("Nenhuma face detectada na imagem.")
-            return np.array(pil_image)
+            return np.array(pil_image), []
         
-        # Analisa emoção uma vez para toda a imagem
+        # Analisa emoção
         emotion = analyze_emotion(frame_bgr)
         emotion_translated = translate_emotion(emotion)
         
-        # Dimensões da imagem para escalar fonte
+        # Dimensões da imagem
         h, w, _ = frame_bgr.shape
-        font_scale = max(0.6, min(w, h) / 800)
-        line_height = int(30 * font_scale)
+        font_scale = max(0.5, min(w, h) / 1000)
         
-        # Processa cada face detectada
-        for i, face in enumerate(faces):
+        results = []
+        
+        # Processa cada face
+        for face in faces:
             age = int(face.age)
             gender = translate_gender(face.gender)
             faixa = map_age_to_range(age)
             
-            # Desenha retângulo ao redor da face
+            # Salva informações
+            results.append({
+                'age': age,
+                'gender': gender,
+                'age_range': faixa,
+                'emotion': emotion_translated
+            })
+            
+            # Desenha retângulo
             bbox = face.bbox.astype(int)
-            cv2.rectangle(frame_bgr, tuple(bbox[:2]), tuple(bbox[2:]), (0, 255, 0), 2)
+            cv2.rectangle(frame_bgr, tuple(bbox[:2]), tuple(bbox[2:]), (0, 255, 0), 3)
             
-            # Prepara labels
-            labels = [
-                f"Gênero: {gender}",
-                f"Idade: {age} anos ({faixa})",
-                f"Emoção: {emotion_translated}"
-            ]
+            # Texto simples
+            label = f"{gender}, {age} anos, {emotion_translated}"
             
-            # Posição inicial do texto
-            x, y = bbox[0], bbox[1] - 15
+            # Posição do texto
+            x, y = bbox[0], bbox[1] - 10
+            if y < 30:
+                y = bbox[3] + 25
             
-            # Garante que o texto não saia da imagem
-            if y < line_height * len(labels):
-                y = bbox[3] + line_height
+            # Fundo para texto
+            (text_width, text_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 2)
+            cv2.rectangle(frame_bgr, (x-2, y-text_height-5), (x+text_width+2, y+5), (0,0,0), -1)
             
-            # Desenha cada label
-            for j, label in enumerate(labels):
-                text_y = y + j * line_height
-                
-                # Fundo para o texto (melhor legibilidade)
-                (text_width, text_height), _ = cv2.getTextSize(
-                    label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 2
-                )
-                cv2.rectangle(
-                    frame_bgr,
-                    (x - 5, text_y - text_height - 5),
-                    (x + text_width + 5, text_y + 5),
-                    (0, 0, 0),
-                    -1
-                )
-                
-                # Texto
-                cv2.putText(
-                    frame_bgr,
-                    label,
-                    (x, text_y),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    font_scale,
-                    (0, 255, 0),
-                    2
-                )
+            # Desenha texto
+            cv2.putText(frame_bgr, label, (x, y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 255, 0), 2)
         
-        # Converte de volta para RGB
-        return cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+        return cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB), results
         
     except Exception as e:
-        st.error(f"Erro no processamento da imagem: {e}")
-        return np.array(pil_image)
+        st.error(f"Erro: {e}")
+        return np.array(pil_image), []
 
-# Interface do Streamlit
-st.title("📷 Análise Facial com DeepFace + InsightFace")
-st.markdown("Envie uma imagem ou use a câmera para detectar idade, gênero e emoção.")
+# Interface principal
+st.title("📷 Análise Facial")
+st.markdown("### Tire uma foto para detectar idade, gênero e emoção")
 
-# Opções de entrada
-col1, col2 = st.columns(2)
+# Apenas entrada por câmera
+camera_input = st.camera_input("📸 Câmera", key="camera")
 
-with col1:
-    image_input = st.file_uploader(
-        "📁 Envie uma imagem", 
-        type=["jpg", "jpeg", "png"],
-        help="Formatos aceitos: JPG, JPEG, PNG"
-    )
-
-with col2:
-    camera_input = st.camera_input(
-        "📸 Ou tire uma foto",
-        help="Use a câmera do dispositivo"
-    )
-
-# Processamento da imagem
-if image_input or camera_input:
+if camera_input:
     try:
-        # Carrega a imagem
-        uploaded_image = Image.open(image_input or camera_input)
+        # Carrega imagem
+        uploaded_image = Image.open(camera_input)
         
-        # Mostra a imagem original
-        st.subheader("🖼️ Imagem Original")
-        st.image(uploaded_image, caption="Imagem carregada", use_column_width=True)
+        # Mostra imagem original em tamanho menor
+        st.subheader("📸 Foto capturada")
+        st.image(uploaded_image, width=300)
         
-        # Verifica se os modelos estão disponíveis
         if app_insight is None:
-            st.error("⚠️ Modelo InsightFace não está disponível. Verifique a instalação.")
+            st.error("⚠️ Modelo não disponível")
         else:
-            # Processa a imagem
-            with st.spinner("🔍 Analisando faces, idade, gênero e emoção..."):
-                result_img = process_image(uploaded_image)
+            # Processa
+            with st.spinner("🔍 Analisando..."):
+                result_img, results = process_image(uploaded_image)
             
-            # Mostra o resultado
-            st.subheader("✨ Resultado da Análise")
-            st.image(result_img, caption="Análise completa", use_column_width=True)
-            
-            # Informações adicionais
-            st.info("💡 **Dica:** Para melhores resultados, use imagens com faces bem iluminadas e frontais.")
-            
+            # Mostra resultado
+            if results:
+                st.subheader("✨ Resultado")
+                st.image(result_img, width=400)
+                
+                # Mostra informações detalhadas
+                st.subheader("📊 Detalhes")
+                for i, info in enumerate(results, 1):
+                    with st.expander(f"Pessoa {i}"):
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric("Gênero", info['gender'])
+                            st.metric("Idade", f"{info['age']} anos")
+                        with col2:
+                            st.metric("Faixa etária", info['age_range'])
+                            st.metric("Emoção", info['emotion'])
+            else:
+                st.warning("🔍 Nenhuma face detectada")
+                st.info("💡 Dica: Posicione o rosto de frente para a câmera com boa iluminação")
+                
     except Exception as e:
-        st.error(f"❌ Erro ao processar a imagem: {e}")
-        st.markdown("**Possíveis soluções:**")
-        st.markdown("- Verifique se a imagem está em formato válido (JPG, JPEG, PNG)")
-        st.markdown("- Tente com uma imagem diferente")
-        st.markdown("- Reinicie a aplicação")
+        st.error(f"❌ Erro ao processar: {e}")
+        st.button("🔄 Tentar novamente", key="retry")
 
-# Informações sobre a aplicação
-with st.expander("ℹ️ Sobre esta aplicação"):
+# Rodapé com informações
+st.markdown("---")
+with st.expander("ℹ️ Sobre"):
     st.markdown("""
-    **Tecnologias utilizadas:**
-    - **InsightFace:** Detecção de faces, idade e gênero
-    - **DeepFace:** Análise de emoções
-    - **OpenCV:** Processamento de imagens
-    - **Streamlit:** Interface web
+    **Como usar:**
+    1. Clique no botão da câmera
+    2. Tire uma foto
+    3. Aguarde a análise
     
-    **Funcionalidades:**
-    - ✅ Correção automática de orientação de imagens
-    - ✅ Detecção de múltiplas faces
-    - ✅ Análise de idade, gênero e emoção
-    - ✅ Interface responsiva para mobile
+    **O que detectamos:**
+    - 👤 Gênero
+    - 🎂 Idade 
+    - 😊 Emoção
     
-    **Nota:** A precisão pode variar dependendo da qualidade e iluminação da imagem.
+    **Dicas para melhores resultados:**
+    - Use boa iluminação
+    - Mantenha o rosto de frente
+    - Evite óculos escuros ou máscaras
     """)
