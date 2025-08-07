@@ -31,17 +31,17 @@ def translate_gender(gender_id):
 
 def map_age_to_range(age):
     if age <= 12:
-        return "Criança"
+        return "Criança (0-12)"
     elif age <= 17:
-        return "Adolescente"
+        return "Adolescente (13-17)"
     elif age <= 29:
-        return "Jovem"
+        return "Jovem Adulto (18-29)"
     elif age <= 49:
-        return "Adulto"
+        return "Adulto (30-49)"
     elif age <= 64:
-        return "Meia-idade"
+        return "Meia-idade (50-64)"
     else:
-        return "Idoso"
+        return "Idoso (65+)"
 
 def translate_emotion(emotion):
     translation = {
@@ -122,7 +122,7 @@ def process_image(pil_image):
             cv2.rectangle(frame_bgr, tuple(bbox[:2]), tuple(bbox[2:]), (0, 255, 0), 3)
             
             # Texto simples
-            label = f"{gender}, {age} anos, {emotion_translated}"
+            label = f"{gender}, {faixa}, {emotion_translated}"
             
             # Posição do texto
             x, y = bbox[0], bbox[1] - 10
@@ -177,9 +177,8 @@ if camera_input:
                         col1, col2 = st.columns(2)
                         with col1:
                             st.metric("Gênero", info['gender'])
-                            st.metric("Idade", f"{info['age']} anos")
-                        with col2:
                             st.metric("Faixa etária", info['age_range'])
+                        with col2:
                             st.metric("Emoção", info['emotion'])
             else:
                 st.warning("🔍 Nenhuma face detectada")
@@ -200,7 +199,7 @@ with st.expander("ℹ️ Sobre"):
     
     **O que detectamos:**
     - 👤 Gênero
-    - 🎂 Idade 
+    - 📅 Faixa etária
     - 😊 Emoção
     
     **Dicas para melhores resultados:**
